@@ -6,44 +6,37 @@ wandb.init(project='fastainlp')
 
 path = untar_data(URLs.IMDB)
 
-
 # get_text_files get all the text files in a path
 files = get_text_files(path, folders=['train', 'test', 'unsup'])
 # Logging
-txt = files[0].open().read()
-print(txt[:75])
+print("get text files \n")
 
 # tokenize 1
 spacy = WordTokenizer()
 # Logging
-toks = first(spacy([txt]))
-print(coll_repr(toks, 30))
+print("load spacy \n")
 # tokenize 2
 tkn = Tokenizer(spacy)
 # Logging
-print(coll_repr(tkn(txt), 31))
+print("load tokenizer \n")
 
 # first 2000 movie reviews
 txts = L(o.open().read() for o in files[:2000])
 toks200 = txts[:200].map(tkn)
 # Logging
-print("Load first 2000 movie reviews.")
+print("load first 2000 movie reviews \n")
 
 # numericalize
 num = Numericalize()
 num.setup(toks200)
 nums200 = toks200.map(num)
 # Logging
-nums = num(toks)[:50]
-print(nums)
-print(' '.join(num.vocab[o] for o in nums))
+print("done numericalize \n")
 
 dl = LMDataLoader(nums200)
 x, y = first(dl)
 # logging
-print(x.shape, y.shape)
-print(' '.join(num.vocab[o] for o in x[0][:20]))
-print(' '.join(num.vocab[o] for o in y[0][:20]))
+print("load LMDataLoader \n")
 
 get_imdb = partial(get_text_files, folders=['train', 'test', 'unsup'])
 dls_lm = DataBlock(
@@ -52,7 +45,7 @@ dls_lm = DataBlock(
 ).dataloaders(path, path=path, bs=128, seq_len=80)
 
 # Logging
-dls_lm.show_batch(max_n=2)
+print("load dls_lm \n")
 
 # initial PLM
 learn = language_model_learner(
@@ -62,8 +55,13 @@ learn = language_model_learner(
 ).to_fp16()
 
 # first phase fine-tuned LM
-learn.fit_one_cycle(10, 2e-2)
+learn.fit_one_cycle(1, 2e-2)
+learn.save('1epoch')
+learn.load('1epoch')
+learn.unfreeze()
+learn.fit_one_cycle(10, 2e-3)
 learn.save_encoder('finetuned')
+print("save encoder \n")
 
 dls_clas = DataBlock(
     blocks=(TextBlock.from_folder(path, vocab=dls_lm.vocab), CategoryBlock),
@@ -71,6 +69,7 @@ dls_clas = DataBlock(
     get_items=partial(get_text_files, folders=['train', 'test']),
     splitter=GrandparentSplitter(valid_name='test')
 ).dataloaders(path, path=path, bs=128, seq_len=72)
+print("load dls_clas \n")
 
 dls_clas.show_batch(max_n=3)
 
