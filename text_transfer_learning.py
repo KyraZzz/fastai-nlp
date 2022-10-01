@@ -1,6 +1,11 @@
 from fastai.text.all import *
+import wandb
+from fastai.callback.wandb import *
+
+wandb.init(project='fastainlp')
 
 path = untar_data(URLs.IMDB)
+
 
 # get_text_files get all the text files in a path
 files = get_text_files(path, folders=['train', 'test', 'unsup'])
@@ -22,7 +27,7 @@ print(coll_repr(tkn(txt), 31))
 txts = L(o.open().read() for o in files[:2000])
 toks200 = txts[:200].map(tkn)
 # Logging
-print(toks200[0])
+print("Load first 2000 movie reviews.")
 
 # numericalize
 num = Numericalize()
@@ -53,7 +58,7 @@ dls_lm.show_batch(max_n=2)
 learn = language_model_learner(
     dls_lm, AWD_LSTM, drop_mult=0.3,
     # perplexity() = torch.exp(cross_entropy), classification task, accuracy = the number of times the model is right at predicting the next word
-    metrics=[accuracy, Perplexity()]
+    metrics=[accuracy, Perplexity()], cbs=WandbCallback()
 ).to_fp16()
 
 # first phase fine-tuned LM
@@ -70,7 +75,7 @@ dls_clas = DataBlock(
 dls_clas.show_batch(max_n=3)
 
 learn = text_classifier_learner(
-    dls_clas, AWD_LSTM, drop_mult=0.5, metrics=accuracy).to_fp16()
+    dls_clas, AWD_LSTM, drop_mult=0.5, metrics=accuracy, cbs=WandbCallback()).to_fp16()
 
 # load would raise an exception is an incomplete model is loaded, so we use load_encoder
 learn = learn.load_encoder('finetuned')
